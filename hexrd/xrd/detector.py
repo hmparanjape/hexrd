@@ -78,7 +78,7 @@ DFLT_XTOL = 1e-6
 #NCOLS = 2048
 #PIXEL = 0.2
 
-# pscam
+## pscam
 NROWS = 2671
 NCOLS = 4008
 PIXEL = 0.03
