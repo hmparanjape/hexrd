@@ -15,6 +15,7 @@ from hexrd.cli import fitgrains
 from hexrd.cli import gui
 from hexrd.cli import help
 from hexrd.cli import test
+from hexrd.cli import cakedata
 from hexrd.utils import profiler
 
 def main():
@@ -60,6 +61,7 @@ def main():
     fitgrains.configure_parser(sub_parsers)
     cacheframes.configure_parser(sub_parsers)
     test.configure_parser(sub_parsers)
+    cakedata.configure_parser(sub_parsers)
 
     try:
         import argcomplete
