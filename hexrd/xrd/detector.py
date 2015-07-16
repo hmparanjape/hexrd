@@ -31,6 +31,7 @@ import copy
 import os
 import time
 import sys
+import warnings
 
 try:
     import Image
@@ -199,12 +200,15 @@ class Framer2DRC(object):
 
     You can make an instance of this class and use it for most of the
     things a reader would do, other than actually reading frames
+
+    Added nframes parameter for convenience - Harshad
     """
     def __init__(self,
-                 ncols, nrows,
+                 ncols, nrows, nframes=1,
                  dtypeDefault='int16', dtypeRead='uint16', dtypeFloat='float64'):
         self.__ncols = ncols
         self.__nrows = nrows
+        self.__nframes = nframes
         self.__frame_dtype_dflt  = dtypeDefault
         self.__frame_dtype_read  = dtypeRead
         self.__frame_dtype_float = dtypeFloat
@@ -224,6 +228,10 @@ class Framer2DRC(object):
     def get_nrows(self):
         return self.__nrows
     nrows = property(get_nrows, None, None)
+
+    def get_nframes(self):
+        return self.__nframes
+    nframes = property(get_nframes, None, None)
 
     def get_dtypeDefault(self):
         return self.__frame_dtype_dflt
@@ -435,6 +443,10 @@ def getNFramesFromBytes(fileBytes, nbytesHeader, nbytesFrame):
     return nFrames
 
 class FrameWriter(Framer2DRC):
+    """
+    This is for writing 2D data e.g. darks, max frames etc
+    """
+
     def __init__(self, *args, **kwargs):
         self.filename        = kwargs.pop('filename')
         self.__nbytes_header = kwargs.pop('nbytesHeader', 0)
@@ -469,6 +481,72 @@ class FrameWriter(Framer2DRC):
             else:
                 if num.any(data < 0):
                     raise RuntimeError, 'trying to write negative data to unsigned type'
+                data = data.astype(self.dtypeRead)
+        elif num.result_type(self.dtypeRead).kind == 'i':
+            intType = True
+            data = data.astype(self.dtypeRead)
+        else:
+            data = data.astype(self.dtypeRead)
+
+        if doAllChecks and intType:
+            dataMax = data.max()
+            readMax = num.iinfo(self.dtypeRead).max
+            if dataMax > readMax :
+                raise RuntimeError, 'max of %g greater than supported value of %g' % (dataMax, readMax)
+
+        data.tofile(self.img)
+
+        return
+    def __call__(self, *args, **kwargs):
+        return self.write(*args, **kwargs)
+    def close(self):
+        self.img.close()
+        return
+
+class StackWriter(Framer2DRC):
+    """
+    This is for writing multiple frames to disk.
+    Only change from FrameWriter is that assert statements
+    in the write function check for 3D data.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.filename        = kwargs.pop('filename')
+        self.__nbytes_header = kwargs.pop('nbytesHeader', 0)
+        self.__nempty        = kwargs.pop('nempty', 0)
+
+        Framer2DRC.__init__(self, *args, **kwargs)
+
+        self.nFrame = 0
+        self.img = open(self.filename, mode='wb')
+
+        # skip header for now
+        self.img.seek(self.__nbytes_header, 0)
+        if self.__nempty > 0:
+            self.img.seek(self.nbytesFrame*self.__nempty, 1)
+
+        return
+    def write(self, data, doAllChecks=True):
+
+        # if nskip > 0:
+        #     self.img.seek(self.__nbytes_frame*nskip, 1)
+
+        # Here we check for 3D. data is nframes x nrows x ncols
+        assert len(data.shape) == 3, 'data is not 3D'
+        assert data.shape[1] == self.nrows, 'number of rows is wrong'
+        assert data.shape[2] == self.ncols, 'number of rows is wrong'
+
+        intType = False
+
+        if   num.result_type(self.dtypeRead).kind == 'u':
+            intType = True
+            if data.dtype.kind == 'u':
+                'all set'
+            else:
+                if num.any(data < 0):
+                    warnings.warn('After dark subtraction trying to write negative data to unsigned type. Clipping to zero.')
+                    data = data.clip(min=0)
+
                 data = data.astype(self.dtypeRead)
         elif num.result_type(self.dtypeRead).kind == 'i':
             intType = True
@@ -965,12 +1043,23 @@ class ReadGE(Framer2DRC):
     def getWriter(self, filename):
         if not self.doFlip is False:
             raise NotImplementedError, 'doFlip true not coded'
-        new = FrameWriter(self.ncols, self.nrows,
-                          filename=filename,
-                          dtypeDefault=self.dtypeDefault,
-                          dtypeRead=self.dtypeRead,
-                          dtypeFloat=self.dtypeFloat,
-                          nbytesHeader=self.nbytesHeader)
+        
+        nFramesTot = self.getNFrames()
+
+        if nFramesTot == 1:
+            new = FrameWriter(self.ncols, self.nrows,
+                              filename=filename,
+                              dtypeDefault=self.dtypeDefault,
+                              dtypeRead=self.dtypeRead,
+                              dtypeFloat=self.dtypeFloat,
+                              nbytesHeader=self.nbytesHeader)
+        else:
+            new = StackWriter(self.ncols, self.nrows,
+                              filename=filename,
+                              dtypeDefault=self.dtypeDefault,
+                              dtypeRead=self.dtypeRead,
+                              dtypeFloat=self.dtypeFloat,
+                              nbytesHeader=self.nbytesHeader)
         return new
 
     def __setupRead(self, fileInfo, subtractDark, mask, omegaStart, omegaDelta):

@@ -85,9 +85,9 @@ def process_cake(reader, detector, cfg, show_progress=True):
 
     n_frames = reader.getNFrames()
     logger.info("reading %d frames of data", n_frames)
-    # Read all frames from the GE files
+    # Read all frames from the GE files    
     imgOut = reader.read(nframes=n_frames, sumImg=np.maximum)
-            
+    
     elapsed = time.time()-start
     logger.info('read %d frames in %g seconds', n_frames, elapsed)
     # Write "max over all" frame
