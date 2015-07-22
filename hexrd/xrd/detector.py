@@ -532,9 +532,9 @@ class StackWriter(Framer2DRC):
         #     self.img.seek(self.__nbytes_frame*nskip, 1)
 
         # Here we check for 3D. data is nframes x nrows x ncols
-        assert len(data.shape) == 3, 'data is not 3D'
-        assert data.shape[1] == self.nrows, 'number of rows is wrong'
-        assert data.shape[2] == self.ncols, 'number of rows is wrong'
+        #assert len(data.shape) == 3, 'data is not 3D'
+        #assert data.shape[1] == self.nrows, 'number of rows is wrong'
+        #assert data.shape[2] == self.ncols, 'number of rows is wrong'
 
         intType = False
 
@@ -1042,7 +1042,8 @@ class ReadGE(Framer2DRC):
 
     def getWriter(self, filename):
         if not self.doFlip is False:
-            raise NotImplementedError, 'doFlip true not coded'
+            print "Not doing flipping in the output"
+            #raise NotImplementedError, 'doFlip true not coded'
         
         nFramesTot = self.getNFrames()
 
